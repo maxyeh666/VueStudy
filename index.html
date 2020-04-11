@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Vue test</title>
+
+
+</head>
+<body>
+    <div id="app">
+
+        <router-view></router-view> <!-- VueRouter顯示的部分 -->
+        
+    </div>
+
+    
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuex@3.1.3/dist/vuex.min.js"></script>
+
+    <script>
+        //VueRouter主要設定
+
+        let List = {
+            template: 
+            `<div>
+                <p>
+                    <input type="text" v-model.trim="input">  <!-- trim:去頭尾空白 -->
+                    <a href="javascript:;" v-on:click="createHandler">Create</a>
+                </p>
+                    <ol>
+                        <li v-for="(item,index) in contents" :key="item.id"> <!-- 資料裡面的項目 in VUE的資料內容 -->
+                            {{ item.body }} <!-- 取得comment裡面的body資料並顯示 -->
+                            <a href="javascript:;" v-on:click="updateHandler(index)">Update</a>
+                            <a href="javascript:;" v-on:click="deleteHandler(index)">Delete</a>
+                            <!-- vue的click啟動deleteHandler帶入comments裡的id -->
+                        </li>
+                    </ol>
+                
+            </div>`,
+            data: function() { //這裡要使用function() return  來讓變數有所變化 
+                return{
+                    input:'',
+                }
+            },
+            computed: {
+                contents(){
+                    return this.$store.state.contents
+                }
+            },
+            methods:{
+                
+                createHandler(){
+                    if(!this.input) return false    //防止輸入空白值
+
+                    axios
+                    .post('http://localhost:3000/comments',{
+                        body : this.input   //輸入的值所綁定的項目
+                    })
+                    .then(res => {  //promise->成功後執行
+                        this.input=''   //清空input
+                        this.$store.commit('addContent',res.data)   //用commit經由mutation寫入資料
+                        // this.contents.push(res.data)    //將資料經由push寫入
+                    })
+                },
+
+                deleteHandler(index){
+                    // let target = this.contents[index]
+                    // axios.delete(`http://localhost:3000/comments/${target.id}`).then((res) =>{ //``ES6嵌入語法
+                    //     this.contents.splice(index,1)   //splice(項目,數量)->刪除陣列裡的項目與數量
+                    // })
+                    this.$store.dispatch('CONTENT_DELETE', {target})
+                },
+
+                updateHandler(index){
+                    let target = this.contents[index] //宣告target為資料的index
+                    this.$router.push({name:'update',params:{id: target.id}})  //router更新的路路徑與需要的id(params)
+                }
+
+            },
+            mounted() { //載入的的資料(hook)
+                // axios.get('http://localhost:3000/comments').then((res) =>{
+                //     this.contents = res.data
+                // })
+            }
+        }
+
+        let Edit = {
+            template: 
+            `<div>
+                <p>
+                    <input type="text" v-model.trim="input">
+                    <a href="javascript:;" v-on:click="updateHandler(index)">Update</a>
+                </p>
+            </div>`,
+            data() {    //data傳回input的值
+                return{
+                    input:''
+                }
+            },       
+            computed:{
+                content(){
+                    return this.$store.state.contents.find(item =>{ //前往store的state裡面的contents[]
+                        return item.id == this.$route.params.id  //尋找id且要跟router的params的id相同之內容
+                    })
+                }
+            },
+            mounted(){
+                if(!this.content) return this.$router.replace({path:'/'})   //若沒有資料則轉回根目錄
+                this.input = this.content.body
+            }
+        }
+
+        //啟動Vuex
+
+        let store = new Vuex.Store({
+            strict:true,    //嚴格模式,較為嚴謹的偵測錯誤,較耗效能,開發時開始即可
+            state:{ //state=存放資料的地方
+                contents: []
+            },
+            mutations:{
+                setContents(state,data){
+                    state.contents = data
+                },
+                addContent(state,data){
+                    state.contents.push(data)
+                },
+                deleteContent(){
+                    state.contents.splice(data,1)
+                }
+            },
+            actions:{
+                CONTENTS_READ:(context)=>{ //資料(res.data)透過axios(API)取得後，commit到mutations進行寫入state進而影響網頁的實際內容
+                    return axios.get('http://localhost:3000/comments').then((res)=>{
+                        context.commit('setContents',res.data)
+                    })
+                },
+                CONTENT_DELETE:(context,{target})=>{
+                    let index = context.state.contents.indexOf(target)
+                    if(index == -1) return false
+                    return axios.delete('http://localhost:3000/comments' + target.id).then((res)=>{
+                        context.commit('deleteContent',index)
+                    })
+                }
+            }
+        })
+
+        let router = new VueRouter({
+            routes:[{
+                path: '/',    //首頁=根目錄
+                name: 'list',
+                component: List,
+            },
+            {
+                path: '/update/:id', //若為update且有id則以此處裡
+                name: 'update',
+                component: Edit,
+            },
+            {
+                path: '*',   //除上面的情況一律轉回首頁
+                redirect: '/'
+            }]
+        })
+
+        //Vue主要設定
+
+        new Vue ({
+            el: '#app', //綁定ID
+            router,  //啟動VueRouter
+            store,  //啟動Vuex的Store
+            mounted(){  //連結到store的actions
+                this.$store.dispatch('CONTENTS_READ')
+            }
+        })
+    </script>
+</body>
+</html>
