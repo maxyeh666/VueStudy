@@ -1,5 +1,7 @@
 Vue.js 學習筆記
 
+使用json server建立簡單的REST apix練習
+
 Vue的生命週期圖解
 <img src="https://res.cloudinary.com/atmos1128/image/upload/v1568730321/vue.js/lifecycle.png">
 
