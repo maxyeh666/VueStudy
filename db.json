@@ -9,8 +9,9 @@
   "comments": [
     {
       "id": 1,
-      "body": "some comment",
-      "postId": 1
+      "body": "first",
+      "postId": 1,
+      "content": "first"
     },
     {
       "body": "a",

@@ -6,7 +6,6 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Vue test</title>
 
-
 </head>
 <body>
     <div id="app">
@@ -14,8 +13,6 @@
         <router-view></router-view> <!-- VueRouter顯示的部分 -->
         
     </div>
-
-    
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
@@ -26,7 +23,7 @@
         //VueRouter主要設定
 
         let List = {
-            template: 
+            template: //樣板->網頁要呈現的內容
             `<div>
                 <p>
                     <input type="text" v-model.trim="input">  <!-- trim:去頭尾空白 -->
@@ -42,7 +39,7 @@
                     </ol>
                 
             </div>`,
-            data: function() { //這裡要使用function() return  來讓變數有所變化 
+            data: function() { //這裡要使用function() return 來傳回參數(Vuex的用法)
                 return{
                     input:'',
                 }
@@ -61,7 +58,7 @@
                     .post('http://localhost:3000/comments',{
                         body : this.input   //輸入的值所綁定的項目
                     })
-                    .then(res => {  //promise->成功後執行
+                    .then(res => {  //promise ->(arrow function)成功後執行
                         this.input=''   //清空input
                         this.$store.commit('addContent',res.data)   //用commit經由mutation寫入資料
                         // this.contents.push(res.data)    //將資料經由push寫入
@@ -78,7 +75,7 @@
 
                 updateHandler(index){
                     let target = this.contents[index] //宣告target為資料的index
-                    this.$router.push({name:'update',params:{id: target.id}})  //router更新的路路徑與需要的id(params)
+                    this.$router.push({name:'update',params:{id: target.id}})  //router更新的路徑與需要的id(params)
                 }
 
             },
@@ -94,7 +91,7 @@
             `<div>
                 <p>
                     <input type="text" v-model.trim="input">
-                    <a href="javascript:;" v-on:click="updateHandler(index)">Update</a>
+                    <a href="javascript:;" v-on:click="updateHandler">Update</a>
                 </p>
             </div>`,
             data() {    //data傳回input的值
@@ -109,42 +106,66 @@
                     })
                 }
             },
+            methods: {
+                updateHandler(){
+                    this.$store.dispatch('CONTENT_UPDATE',{id:this.content.id,input:this.input}).then(()=>{ //執行CONTENT_UPDATE,帶入id跟input
+                        this.$router.push({path:"/"})   //執行後轉回首頁
+                    })
+                }
+            },
             mounted(){
                 if(!this.content) return this.$router.replace({path:'/'})   //若沒有資料則轉回根目錄
-                this.input = this.content.body
+                this.input = this.content.body  //將input綁到資料裡的"body"
             }
         }
 
         //啟動Vuex
 
         let store = new Vuex.Store({
-            strict:true,    //嚴格模式,較為嚴謹的偵測錯誤,較耗效能,開發時開始即可
+            // strict:true,    //嚴格模式,較為嚴謹的偵測錯誤,較耗效能,開發時開啟即可
             state:{ //state=存放資料的地方
                 contents: []
             },
             mutations:{
-                setContents(state,data){
+                setContents(state,data){    //顯示資料
                     state.contents = data
                 },
-                addContent(state,data){
+                addContent(state,data){     //新增資料
                     state.contents.push(data)
                 },
-                deleteContent(){
+                deleteContent(state,data){  //刪除資料
                     state.contents.splice(data,1)
+                },
+                updateContent(state,{item,input}){  //更新資料
+                    item.body = input
                 }
+
             },
-            actions:{
-                CONTENTS_READ:(context)=>{ //資料(res.data)透過axios(API)取得後，commit到mutations進行寫入state進而影響網頁的實際內容
-                    return axios.get('http://localhost:3000/comments').then((res)=>{
-                        context.commit('setContents',res.data)
-                    })
+            actions:{   //Vuex單向資料流規則:actions->mutations->state
+            //資料(res.data)透過axios(API)取得後，commit到mutations進行寫入state進而影響網頁的實際內容
+                CONTENTS_READ:(context)=>{ 
+                    return axios
+                            .get('http://localhost:3000/comments').then((res)=>{    //.get取得資料的行為=>commit到mutations處理
+                                context.commit('setContents',res.data)
+                            })
                 },
                 CONTENT_DELETE:(context,{target})=>{
-                    let index = context.state.contents.indexOf(target)
-                    if(index == -1) return false
-                    return axios.delete('http://localhost:3000/comments' + target.id).then((res)=>{
-                        context.commit('deleteContent',index)
+                    let index = context.state.contents.indexOf(target)  //取得index(=target)
+                    if(index == -1) return false    //若index沒有的話則傳回false
+                    return axios
+                            .delete('http://localhost:3000/comments' + target.id).then(res =>{  //.delete刪除指定index資料的行為=>commit到mutations處裡
+                                context.commit('deleteContent',index)
+                            })
+                },
+                CONTENT_UPDATE:(context,{id,input}) =>{
+                    let item = context.state.contents.find((item) => {  //需要update的id驗證是否相符
+                    return item.id == id
                     })
+                    if (!item) return false
+                    return axios
+                            .patch('http://localhost:3000/comments/' + item.id,{body: input}).then(res => { //.patch(部分更新)指定id內容為input的行為=>commit到mutations處理
+                                context.commit('updateContent',{item,input})
+                            })
                 }
             }
         })
@@ -173,7 +194,7 @@
             router,  //啟動VueRouter
             store,  //啟動Vuex的Store
             mounted(){  //連結到store的actions
-                this.$store.dispatch('CONTENTS_READ')
+                this.$store.dispatch('CONTENTS_READ')   //經由$store.dispatch分配讀取到的內容(CONTENTS_READ=db.json的資料),hook上去
             }
         })
     </script>
